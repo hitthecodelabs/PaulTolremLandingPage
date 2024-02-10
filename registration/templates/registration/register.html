@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container">
+      <h2 class="my-4">Join Paul Tolrem</h2>
+      <form method="post" autocomplete="off">
+        {% csrf_token %}
+        <div class="row">
+            {{ form.as_p }}
+        </div>
+        <button type="submit" class="btn btn-primary">Sign up</button>
+      </form>
+  </div>
+{% endblock %}

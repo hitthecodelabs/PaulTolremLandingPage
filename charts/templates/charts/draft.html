@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candlestick Chart</title>
+    <style>
+      #chartContainer {
+        width: 1000px;
+        height: 600px;
+        overflow: scroll;
+        border: 1px solid black;
+        position: relative;
+      }
+      #chart {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+</head>
+
+<body>
+    <h2>Candlestick Chart</h2>
+    <div></div>
+    <label for="timeframe">Timeframe:</label>
+    <select id="timeframe" name="timeframe">
+        <option value="1m" selected>1m</option>
+        <option value="3m">3m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="30m">30m</option>
+        <option value="1h">1h</option>
+        <option value="2h">2h</option>
+        <option value="4h">4h</option>
+        <option value="6h">6h</option>
+        <option value="8h">8h</option>
+        <option value="12h">12h</option>
+        <option value="1d">1d</option>
+        <option value="3d">3d</option>
+        <option value="1w">1w</option>
+        <option value="1M">1M</option>
+    </select>
+    <label for="symbol">Symbol Pair:</label>
+    <select id="symbol" name="symbol">
+        <option value="BTCUSDT" selected>BTC</option>
+        <option value="ETHUSDT">ETH</option>
+        <option value="BNBUSDT">BNB</option>
+        <option value="ADAUSDT">ADA</option>
+        <option value="MATICUSDT">MATIC</option>
+        <option value="DOGEUSDT">DOGE</option>
+        <option value="SOLUSDT">SOL</option>
+        <option value="DOTUSDT">DOT</option>
+        <option value="ATOMUSDT">ATOM</option>
+        <option value="AVAXUSDT">AVAX</option>
+        <option value="FTMUSDT">FTM</option>
+        <option value="FILUSDT">FIL</option>
+        <option value="1000SHIBUSDT">SHIB</option>
+        <option value="UNIUSDT">UNI</option>
+        <option value="TRXUSDT">TRX</option>
+        <option value="XRPUSDT">XRP</option>
+        <option value="1000PEPEUSDT">PEPE</option>
+        <option value="APTUSDT">APT</option>
+        <option value="ARBUSDT">ARB</option>
+        <option value="ARPAUSDT">ARPA</option>
+        <option value="KAVAUSDT">KAVA</option>
+        <option value="LINKUSDT">LINK</option>
+        <option value="MASKUSDT">MASK</option>
+        <option value="OPUSDT">OP</option>
+        <option value="PHBUSDT">PHB</option>
+        <option value="TOMOUSDT">TOMO</option>
+    </select>
+    <div></div>
+    <div></div>
+    <div class="chart-container">
+        <div id="chart"></div>
+    </div>
+    <style>
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.33/moment-timezone-with-data.min.js"></script>
+    <script>
+let timezoneOffset;
+
+function fetchTimezoneOffset() {
+    var timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var offsetInMinutes = moment().tz(timezone).utcOffset();
+    var offsetInMilliseconds = offsetInMinutes * 60 * 1000;
+    return offsetInMilliseconds;
+}
+
+async function fetchPredictionData() {
+    const symbol = document.getElementById("symbol").value;
+    const apiUrl = "https://paultolrem.com/api/get_xtimes_preds/";
+    const coin = symbol.toLowerCase().replace("usdt", "");
+    const fullUrl = apiUrl + coin;
+
+    const response = await fetch(fullUrl);
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.result.map(d => ({
+        date: new Date(parseInt(d[0])),  // convert timestamp to date
+        prediction: parseFloat(d[1])    // convert string to float
+    }));
+}
+
+    async function initializeData() {
+        // Fetch the timezone offset
+        timezoneOffset = fetchTimezoneOffset();
+    
+        // Start updating chart data
+        updateChartDataPeriodically();
+    }
+
+    const tooltip = d3.select("#chart")
+        .append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+
+    async function loadChartData() {
+        const apiUrl = "https://fapi.binance.com/fapi/v1/klines";
+        const symbol = document.getElementById("symbol").value;
+        const selectedTimeframe = document.getElementById("timeframe").value;
+        const interval = selectedTimeframe;
+        const limit = 72;
+        const fullUrl = apiUrl + "?symbol=" + symbol + "&interval=" + interval + "&limit=" + limit;
+        const candleWidth = 6.5;
+
+        // Fetch the timezone offset
+        const timezoneOffset = fetchTimezoneOffset();
+
+        // const predictionData = await fetchPredictionData();
+
+        fetch(fullUrl)
+            .then(response => response.json())
+            .then(data => {
+        const processedData = data.map(d => ({
+        // Apply the timezone offset to the date
+        date: new Date(d[0] + timezoneOffset),
+        open: +d[1],
+        high: +d[2],
+        low: +d[3],
+        close: +d[4],
+        pchange: +(100 * (d[4] - d[1]) / d[1]).toFixed(2),
+        pamplitude: +(100 * (d[2] - d[3]) / d[3]).toFixed(2),
+        bullish: d[4] >= d[1],
+    }));
+/**
+            // Match the prediction data with the candlestick data
+            processedData.forEach(d => {
+                const match = predictionData.find(p => p.date.getTime() === d.date.getTime());
+                if (match) {
+                    d.prediction = match.prediction;
+                }
+            });
+*/
+                d3.select("#chart").selectAll("g").remove();
+
+                const margin = { top: 20, right: 100, bottom: 120, left: 55 };
+                const width = 960 - margin.left - margin.right;
+                const height = 500 - margin.top - margin.bottom;
+
+                const x = d3.scaleUtc()
+                    .domain([d3.min(processedData, d => d.date.getTime() - candleWidth / 2), d3.max(processedData, d => d.date.getTime() + candleWidth / 2)])
+                    .range([margin.left, width - margin.right]);
+
+                const y = d3.scaleLinear()
+                    .domain([d3.min(processedData, d => d.low), d3.max(processedData, d => d.high)])
+                    .range([height - margin.bottom, margin.top]);
+
+                const xAxis = g => g
+                    .attr("transform", `translate(0,${height - margin.bottom})`)
+                    .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0));
+
+                const lastClose = processedData[processedData.length - 1].close;
+                const lastDate = processedData[processedData.length - 1].date;
+                const yAxis = g => g
+                    .attr("transform", `translate(${margin.left},0)`)
+                    .call(d3.axisLeft(y))
+                    .call(g => g.select(".domain").remove())
+                    .call(g => g.select(".tick:last-of-type text").clone()
+                        .attr("x", 4)
+                        .attr("text-anchor", "start")
+                        .attr("font-weight", "bold")
+                        .text(`Price (USD) $${lastClose}`));
+
+                let svg = d3.select("#chart").select("svg");
+                if (svg.empty()) {
+                    svg = d3.select("#chart").append("svg")
+                        .attr("viewBox", [0, 0, width, height])
+                        .on("mousemove", mousemove)
+                        .on("mouseout", mouseout);
+                } else {
+                    svg.selectAll("*").remove();
+                }
+
+                const g = svg.append("g")
+                    .attr("stroke-linecap", "round")
+                    .attr("stroke", "black")
+                    .selectAll("g")
+                    .data(processedData)
+                    .join("g")
+                    .attr("transform", d => `translate(${x(d.date)},0)`)
+                    .attr("data-date", d => d.date.getTime()) 
+                    .on("mouseover", mouseover)
+                    .on("mousemove", mousemove)
+                    .on("mouseout", mouseout);
+
+                const wickWidth = 0.15;
+                g.append("rect")
+                    .attr("x", -wickWidth / 2)
+                    .attr("y", d => y(d.high))
+                    .attr("width", wickWidth)
+                    .attr("height", d => y(d.low) - y(d.high))
+                    .attr("fill", d => d.bullish ? "green" : "red")
+                    .attr("rx", 1)
+                    .attr("ry", 1);
+
+                g.append("rect")
+                    .attr("x", -candleWidth / 2)
+                    .attr("y", d => y(Math.max(d.open, d.close)))
+                    .attr("width", candleWidth)
+                    .attr("height", d => Math.max(1, Math.abs(y(d.open) - y(d.close)))) // Set a minimum height of 1
+                    .attr("fill", d => d.bullish ? "green" : "red")
+                    .attr("rx", 1)
+                    .attr("ry", 1);
+
+                // Define an array of offsets for the vertical lines
+                let lineOffsets = [-candleWidth / 2, 0, candleWidth / 2];
+                
+                /**                
+                // Iterate over the offsets to create each line
+                for(let i = 0; i < lineOffsets.length; i++) {                
+                    g.append("rect")
+                        .attr("x", lineOffsets[i])
+                        .attr("y", 0)
+                        .attr("width", wickWidth)
+                        .attr("height", height)
+                        .attr("fill", "lightgray");
+                };
+                */
+                svg.append("g")
+                    .call(xAxis);
+
+                svg.append("g")
+                    .call(yAxis);
+
+                function mouseover(d) {
+                    tooltip.style("opacity", 1);
+                }
+
+                function mouseout() {
+                    tooltip.style("opacity", 0);
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching data:", error);
+            });
+    }
+
+    function updateChartDataPeriodically() {
+        loadChartData();
+        // setTimeout(updateChartDataPeriodically, 10000); 
+        setTimeout(updateChartDataPeriodically, 2000); 
+    }
+
+    // updateChartDataPeriodically();
+    // Call the initialization function
+    initializeData();
+
+    document.getElementById("timeframe").addEventListener("change", loadChartData);
+    document.getElementById("symbol").addEventListener("change", loadChartData);
+
+    function mousemove(event, d) {
+        try {
+            if (!d) throw new Error('Data is undefined');
+            tooltip
+                .html(`<table>
+                    <tr><td>Date:  </td><td>${d.date.toISOString().split('.')[0].replace("T", " ")}</td></tr>
+                    <tr><td>Open:  </td><td>${d.open}</td></tr>
+                    <tr><td>High:  </td><td>${d.high}</td></tr>
+                    <tr><td>Low:  </td><td>${d.low}</td></tr>
+                    <tr><td>Close:  </td><td>${d.close}</td></tr>
+                    <tr><td>% Change:  </td><td>${d.pchange.toFixed(2)}%</td></tr>
+                    <tr><td>% Amplitude:  </td><td>${d.pamplitude.toFixed(2)}%</td></tr>
+                </table>`)
+                .style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        } catch (e) {
+            // console.error(e);
+        }
+    }
+</script>
+</body>

@@ -1,0 +1,37 @@
+body.dark-theme {
+    background-color: #212529;
+    color: white; 
+}
+
+body.dark-theme .navbar-light {
+    background-color: #343a40 !important;
+}
+
+body.dark-theme .navbar-light .navbar-brand, 
+body.dark-theme .navbar-light .nav-link {
+    color: #f8f9fa !important;
+}
+
+body.dark-theme .card {
+    background-color: #343a40 !important;  
+}
+
+div.card.dark-mode-card .card-body .card-text,
+div.card.dark-mode-card .card-body .card-title {
+    color: #f5f5f5 !important; /* This will ensure the text is always black */
+}
+
+body.dark-theme div.card.dark-mode-card .card-body .card-text,
+body.dark-theme div.card.dark-mode-card .card-body .card-title {
+    color: #f5f5f5 !important; /* This will ensure the text is always black */
+}
+
+body .footer {
+    background-color: #f8f9fa; /* Color de fondo por defecto para el tema claro */
+    color: #343a40; /* Color de texto por defecto para el tema claro */
+}
+
+body.dark-theme .footer {
+    background-color: #343a40; /* Color de fondo para el tema oscuro */
+    color: #f8f9fa; /* Color de texto para el tema oscuro */
+}

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candlestick Chart</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+    <h2>Candlestick Chart</h2>
+    <label for="timeframe">Timeframe:</label>
+    <select id="timeframe" name="timeframe">
+        <option value="1m" selected>1m</option>
+        <option value="3m">3m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="30m">30m</option>
+        <option value="1h">1h</option>
+        <option value="2h">2h</option>
+        <option value="4h">4h</option>
+        <option value="6h">6h</option>
+        <option value="8h">8h</option>
+        <option value="12h">12h</option>
+        <option value="1d">1d</option>
+        <option value="3d">3d</option>
+        <option value="1w">1w</option>
+        <option value="1M">1M</option>
+    </select>
+<label for="symbol">Symbol Pair:</label>
+<select id="symbol" name="symbol">
+    <option value="ADAUSDT">ADA</option>
+    <option value="APTUSDT">APT</option>
+    <option value="ARBUSDT">ARB</option>
+    <option value="ARPAUSDT">ARPA</option>
+    <option value="ATOMUSDT">ATOM</option>
+    <option value="AVAXUSDT">AVAX</option>
+    <option value="BNBUSDT">BNB</option>
+    <option value="BTCUSDT" selected>BTC</option>
+    <option value="DOGEUSDT">DOGE</option>
+    <option value="DOTUSDT">DOT</option>
+    <option value="DYDXUSDT">DYDX</option>
+    <option value="ETHUSDT">ETH</option>
+    <option value="FILUSDT">FIL</option>
+    <option value="FTMUSDT">FTM</option>
+    <option value="JOEUSDT">JOE</option>
+    <option value="KAVAUSDT">KAVA</option>
+    <option value="LINAUSDT">LINA</option>
+    <option value="LINKUSDT">LINK</option>
+    <option value="MATICUSDT">MATIC</option>
+    <option value="MASKUSDT">MASK</option>
+    <option value="OCEANUSDT">OCEAN</option>
+    <option value="OPUSDT">OP</option>
+    <option value="1000PEPEUSDT">PEPE</option>
+    <option value="PHBUSDT">PHB</option>
+    <option value="1000SHIBUSDT">SHIB</option>
+    <option value="SOLUSDT">SOL</option>
+    <option value="TOMOUSDT">TOMO</option>
+    <option value="TRXUSDT">TRX</option>
+    <option value="UNIUSDT">UNI</option>
+    <option value="XRPUSDT">XRP</option>
+</select>
+
+    <div id="chart" style="width: 100%; height: 500px;"></div>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            const apiUrl = "https://fapi.binance.com/fapi/v1/klines";
+            const symbol = "BTCUSDT";
+            const interval = "1m";
+            const limit = 180;
+            const fullUrl = apiUrl + "?symbol=" + symbol + "&interval=" + interval + "&limit=" + limit;
+
+            try {
+                const response = await fetch(fullUrl);
+                const data = await response.json();
+                const processedData = data.map(d => ({
+                    time: d[0] / 1000,
+                    open: +d[1],
+                    high: +d[2],
+                    low: +d[3],
+                    close: +d[4]
+                }));
+
+                const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+                    width: document.body.clientWidth,
+                    height: 500,
+                    priceScale: {
+                        position: 'right',
+                    },
+                    timeScale: {
+                        timeVisible: true,
+                        secondsVisible: false,
+                    },
+                });
+
+                const candleSeries = chart.addCandlestickSeries();
+                candleSeries.setData(processedData);
+
+                // Fetch the new data
+                const ApiUrl = "http://127.0.0.1:8880/api/get_xtimes_preds/btc";
+                let newData;
+                try {
+                    const response = await fetch(ApiUrl, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    const result = await response.json();
+                    newData = result.result.map(d => ({ time: d[0] / 1000, value: +d[1] }));
+                } catch (error) {
+                    console.error("Error fetching new data:", error);
+                    newData = [
+                        { time: 1687816230000 / 1000, value: 0.6006 },
+                        { time: 1687816260000 / 1000, value: 0.5123 },
+                        // ... Add the rest of the sample data points here
+                    ];
+                }
+
+                const histogramSeries = chart.addHistogramSeries({
+                    priceScaleId: 'newData',
+                    color: 'rgba(255, 165, 0, 0.5)',
+                    priceScale: {
+                        position: 'right',
+                        drawTicks: false,
+                    },
+                });
+
+                histogramSeries.setData(newData.map(d => {
+    // Convert the original values to new ones
+    let newValue = d.value < 0.5 ? 1 - d.value : d.value;
+    let strokeColor = newValue < 0.500001 ? 'rgba(255, 0, 255, 1)' : d.value < 0.5 ? 'rgba(255, 0, 255, 1)' : 'rgba(0, 255, 255, 1)';
+    
+    // Plot the vertical line extending from 0 to the converted value
+    return {
+        time: d.time,
+        value: newValue * 100,
+        color: strokeColor.replace('1)', '0.725)'), // Use the strokeColor with opacity 0.725
+    };
+}));
+
+// Create a separate histogram series for the lighter lines
+const lighterHistogramSeries = chart.addHistogramSeries({
+    priceScaleId: 'newData',
+    priceScale: {
+        position: 'right',
+        drawTicks: false,
+    },
+});
+
+// Plot the lighter vertical lines extending from 0 to 1 on the Y-axis
+lighterHistogramSeries.setData(newData.map(d => {
+    let newValue = d.value < 0.5 ? 1 - d.value : d.value;
+    let strokeColor = newValue < 0.500001 ? 'rgba(255, 0, 255, 1)' : d.value < 0.5 ? 'rgba(255, 0, 255, 1)' : 'rgba(0, 255, 255, 1)';
+
+    return {
+        time: d.time,
+        value: 100,
+        color: strokeColor.replace('1)', '0.3)'), // Use the strokeColor with opacity 0.3
+    };
+}));
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        });
+    </script>
+</body>
+</html>
+
